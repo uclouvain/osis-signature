@@ -41,7 +41,7 @@ from django.db import models
 from django.urls import reverse
 from osis_signature.contrib.fields import SignatureProcessField 
 
-class YourModel(models.Model)
+class YourModel(models.Model):
     ...
     jury = SignatureProcessField(
         signing_url=reverse('yourapp:sign'),
@@ -141,12 +141,15 @@ urlpatterns = [
 In your views:
 
 ```python
+from django.shortcuts import get_object_or_404
 from osis_signature import SignView
+from yourapp.models import YourModel
 
 class JurySigningView(SignView):
     template_name = 'yourapp/jury_signing.html'
 
-    def get_related_object(self, ):
+    def get_related_object(self, related_uuid):
+        return get_object_or_404(YourModel, uuid=related_uuid)
 ```
 
 You must provide:
@@ -169,7 +172,7 @@ You must provide:
         Upload the PDF document on behalf of {{ actor.get_first_name }} {{ actor.get_last_name }}.
         {% endblocktrans %}
         {% bootstrap_form form %}
-        <button type="submit" class="btn btn-primary"">
+        <button type="submit" class="btn btn-primary">
             {% trans "Upload" %}
         </button>
         <a href="{{ related_object.get_absolute_url }}" class="text-danger">
