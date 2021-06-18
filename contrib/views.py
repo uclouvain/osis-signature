@@ -23,33 +23,13 @@
 #    see http://www.gnu.org/licenses/.
 #
 # ##############################################################################
+from dal import autocomplete
 
-import factory
-from django.conf import settings
-
-from osis_signature.models import Process, Actor
+from base.models.person import Person
 
 
-class ProcessFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Process
-
-
-class InternalActorFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Actor
-
-    process = factory.SubFactory(ProcessFactory)
-    person = factory.SubFactory('base.tests.factories.person.PersonFactory')
-
-
-class ExternalActorFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Actor
-
-    process = factory.SubFactory(ProcessFactory)
-    email = factory.Faker('email')
-    first_name = factory.Faker('first_name')
-    last_name = factory.Faker('last_name')
-    language = settings.LANGUAGE_CODE_EN
-    birth_date = factory.Faker('date_of_birth')
+class PersonAutocomplete(autocomplete.Select2QuerySetView):
+    def get_queryset(self):
+        if not self.request.user.is_authenticated:
+            return Person.objects.none()
+        return Person.objects.all().order_by('last_name', 'first_name')

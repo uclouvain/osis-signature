@@ -23,33 +23,31 @@
 #    see http://www.gnu.org/licenses/.
 #
 # ##############################################################################
+from django.template import Template, Context
+from django.test import TestCase
 
-import factory
-from django.conf import settings
-
-from osis_signature.models import Process, Actor
-
-
-class ProcessFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Process
+from osis_signature.tests.factories import ExternalActorFactory, ProcessFactory, InternalActorFactory
 
 
-class InternalActorFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Actor
+class TemplateTagsTestCase(TestCase):
+    def test_template_tags(self):
+        with self.assertRaises(ValueError):
+            context = Context({})
+            Template(
+                '{% load osis_signature %}'
+                '{% signature_table value %}'
+            ).render(context)
 
-    process = factory.SubFactory(ProcessFactory)
-    person = factory.SubFactory('base.tests.factories.person.PersonFactory')
-
-
-class ExternalActorFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Actor
-
-    process = factory.SubFactory(ProcessFactory)
-    email = factory.Faker('email')
-    first_name = factory.Faker('first_name')
-    last_name = factory.Faker('last_name')
-    language = settings.LANGUAGE_CODE_EN
-    birth_date = factory.Faker('date_of_birth')
+        process = ProcessFactory()
+        ExternalActorFactory(process=process, first_name='Foo')
+        InternalActorFactory(process=process, person__first_name='Bar')
+        context = Context({
+            'value': process
+        })
+        rendered = Template(
+            '{% load osis_signature %}'
+            '{% signature_table value %}'
+        ).render(context)
+        self.assertIn('<table', rendered)
+        self.assertInHTML('Foo', rendered)
+        self.assertInHTML('Bar', rendered)

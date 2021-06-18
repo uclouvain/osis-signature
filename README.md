@@ -7,18 +7,14 @@
 `OSIS Signature` requires
 
 - Django 2.2+
-- Django REST Framework 3.12+
 
-
-# How to install ?
+# Installation
 
 ## Configuring Django
 
 Add `osis_signature` to `INSTALLED_APPS`:
 
 ```python
-import os
-
 INSTALLED_APPS = (
     ...
     'osis_signature',
@@ -26,107 +22,232 @@ INSTALLED_APPS = (
 )
 ```
 
+Add `osis_signature` urls to your patterns (useful for autocompletion):
+
+```python
+from django.urls import path, include
+
+urlpatterns = [
+    ...
+    path('osis_signature/', include('osis_signature.urls')),
+]
+```
+
 # Using OSIS Signature
 
 `osis_signature` is used to manage signature states for a workflow implementing approval.
 
-
 ## Attach to a model
 
-Declare a `SignatureProcessField` on your model to enable adding actor for signing.
-
+Attach a process by using a ForeignKey to the `Process` model to enable adding actors for signing.
 
 ```python
 from django.db import models
-from django.urls import reverse
-from osis_signature.contrib.fields import SignatureProcessField 
+
 
 class YourModel(models.Model):
     ...
-    jury = SignatureProcessField(
-        signing_url=reverse('yourapp:sign'),
+    jury = models.ForeignKey(
+        'osis_signature.Process',
+        on_delete=models.CASCADE,
+        editable=False,
+        null=True,
     )
 ```
 
-The `signing_url` parameter is mandatory and must match to an existing view implementing 
-[the generic `SignView`](#implement-signing-view). 
+## Exposing actors in a form
 
-Then display this field in any form to enable the model creator to add actors. If needed, you can
- - force having at least a number of actors with the `minimum` option
- - restrict adding too many actors with the `maximum` option
- - prevent adding external actors passing `allow_external=False`
- - prevent adding internal actors passing `allow_internal=False`
- - prevent signing by uploading a PDF file using `allow_pdf=False`
- - prevent signing by sending a mail file using `allow_sending=False`
+To add or edit actors of your model, you can use the `ActorFormsetMixin` mixin which adds a formset to your view.
 
+As a reminder, you can configure the formset as per
+[formset documentation](https://docs.djangoproject.com/en/3.2/topics/forms/modelforms/#model-formsets), override the
+`actors_formset_factory_kwargs` attribute to set the factory kwargs, for example:
+
+- force having at least a number of actors with the `min_num` option (default: 1)
+- restrict adding too many actors with the `max_num` and `validate_max` options
+- override `form` (defaults to `ActorForm`) to
+    - handle more precisely field widgets
+    - only allow adding external actors using `ExternalActorForm`
+    - only allow adding internal actors using `InternalActorForm`
+
+## Attaching extra data to actors
+
+If you need extra data attached to actors, subclass the model, and use it in the mixin, e.g.:
+
+```python
+# models.py
+from django.db import models
+
+from osis_signature.models import Actor
+
+
+class YourModel(models.Model):
+    title = models.CharField(max_length=200)
+    jury = models.ForeignKey(
+        'osis_signature.Process',
+        on_delete=models.CASCADE,
+        editable=False,
+        null=True,
+    )
+
+
+class SpecialActor(Actor):
+    civility = models.CharField(
+        max_length=30,
+        choices=(
+            ('mr', 'M.'),
+            ('mme', 'Mme'),
+        )
+    )
+
+    external_fields = ['civility'] + Actor.external_fields
+
+
+# forms.py
+from osis_signature.contrib.forms import ActorForm
+from osis_signature.models import Actor
+
+
+class SpecialActorForm(ActorForm):
+    class Meta(ActorForm.Meta):
+        model = SpecialActor
+        fields = ['civility'] + Actor.widget_fields
+
+
+# views.py
+from osis_signature.contrib.mixins import ActorFormsetMixin
+from django.views import generic
+
+
+class SimpleCreateView(ActorFormsetMixin, generic.CreateView):
+    model = YourModel
+    fields = '__all__'
+    actors_formset_factory_kwargs = {
+        'model': SpecialActor,
+        'form': SpecialActorForm,
+    }
+```
 
 ## Display actors
 
-When displaying the `SignatureProcessField` values, it is advised to use the following template tag:
+When displaying a process' value, you can use the following template tag:
 
-```html+django
+```html
 {% load osis_signature %}
 
 {% signature_table instance.jury %}
 ```
 
 This will display a bootstrap-themed table of actors with their corresponding state for the process, and the button to
-send an e-mail and or sign by PDF. You can pass `allow_pdf=False` or `allow_sending=False` to prevent showing these buttons.
+send an e-mail and or sign by PDF. You can pass `allow_pdf=False` or `allow_sending=False` to prevent showing these
+buttons.
 
 If you need more granular control over the rendering of this table, the output is similar to:
 
-```html+django
-<table class"table">
+```html
+{% load i18n %}
+<table class="table table-striped">
+  <thead>
+  <tr>
+    <th>#</th>
+    <th>{% trans "First name" %}</th>
+    <th>{% trans "Last name" %}</th>
+    <th>{% trans "E-mail" %}</th>
+    <th>{% trans "Status" %}</th>
+  </tr>
+  </thead>
+  <tbody>
+  {% for actor in actors %}
+  <tr>
+    <th scope="row">{{ forloop.counter }}</th>
+    <td>{{ actor.computed.first_name }}</td>
+    <td>{{ actor.computed.last_name }}</td>
+    <td>{{ actor.computed.email }}</td>
+    <td>{{ actor.get_state_display }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
 ```
 
-[comment]: <> (TODO)
+## Implement the signing workflow
 
-## Implement signals
+To fully implement a signing workflow, you will need to implement these views:
 
-An e-mail is sent when the user clicks on a "Send invitation" button, but it is the implementing module's duty to
-actually send this invitation. A signal must be implemented, allowing you to use other modules such as 
+1. a _send invite_ view (requiring at least an actor to send the invite to as a parameter)
+1. a _signing_ view (requiring at least a token to identify the signing actor as a parameter)
+
+Here's an example url configuration:
+
+```python
+from django.urls import path
+from yourapp import views
+
+app_name = 'yourapp'
+urlpatterns = [
+    path('send-invite/<int:actor_pk>', views.send_invite, name="send-invite"),
+    path('sign/<path:token>', views.signing_view, name="sign"),
+]
+```
+
+You can of course add as much as parameters as needed to give more context to your views.
+
+### Send an invitation
+
+To send an e-mail when the user clicks on a _"Send invitation"_ button, you must implement a view. It is advised to use
+other modules such as
 [osis-mail-template](https://github.com/uclouvain/osis-mail-template),
 [osis-notification](https://github.com/uclouvain/osis-notification) and
 [osis-history](https://github.com/uclouvain/osis-history):
 
 ```python
-from django.dispatch import receiver
+from django.forms import Form
+from django.shortcuts import render, get_object_or_404, redirect, resolve_url
 from osis_history.utilities import add_history_entry
-from osis_signature import Actor, get_signing_link
-from osis_signature.signals import send_invite
+from osis_signature.utils import get_signing_token
 from osis_mail_template import generate_email
 from osis_notification.contrib.handlers import EmailNotificationHandler
-from yourapp.models import YourModel
+from osis_signature.models import Actor, SignatureState
 from yourapp.mail_templates import YOUR_TEMPLATE_MAIL_ID
 
 
-@receiver(send_mail, sender=YourModel)
-def send_invite(sender: YourModel, actor: Actor, user=None, **kwargs):
-    language = actor.get_language
-    tokens = {
-        "first_name": actor.get_first_name, 
-        "last_name": actor.get_first_name,
-        "signing_link": get_signing_link(actor),
-    }
-    email_message = generate_email(YOUR_TEMPLATE_MAIL_ID, language, tokens, recipients=[actor.get_email])
-    EmailNotificationHandler.create(email_message)
-    add_history_entry(
-        sender.uuid, 
-        '{} notifié par e-mail'.format(actor.get_email),
-        '{} notified by mail'.format(actor.get_email),
-        user.person.username if user else "system",
-    )
+def send_invite(request, actor_pk):
+    actor = get_object_or_404(Actor, pk=actor_pk)
+    form = Form(request.POST or None)
+    if form.is_valid():
+        actor.switch_state(SignatureState.INVITED)
+        tokens = {
+            "first_name": actor.computed.first_name,
+            "last_name": actor.computed.last_name,
+            "signing_link": resolve_url('yourapp:sign', token=get_signing_token(actor)),
+        }
+        email_message = generate_email(
+          YOUR_TEMPLATE_MAIL_ID, 
+          actor.computed.language, 
+          tokens, 
+          recipients=[actor.computed.email],
+        )
+        EmailNotificationHandler.create(email_message)
+        add_history_entry(
+            actor.process_id,
+            '{} notifié par e-mail'.format(actor.computed.email),
+            '{} notified by mail'.format(actor.computed.email),
+            request.user.person.username,
+        )
+        return redirect('home')
+    return render(request, "send_invite.html", {'form': form, 'actor': actor})
 ```
 
 In case a signal did not respond for the model, a `MissingSendInviteSignal` exception will be thrown.
 
-## Implement signing view
+### Implement signing view
 
-When a user clicks either on a "Sign uploading PDF" button, or an actor on a signing link in a received e-mail, 
-they will be redirected to the `signing_url` set in the `SignatureProcessField`. You must implement this view using
+When a user clicks either on a "Sign uploading PDF" button, or an actor on a signing link in a received e-mail, they
+will be redirected to the `signing_url` set in the `SignatureProcessField`. You must implement this view using
 the `SignView` generic view:
 
 In your urls:
+
 ```python
 from django.urls import path
 from yourapp.views import JurySignView
@@ -145,6 +266,7 @@ from django.shortcuts import get_object_or_404
 from osis_signature import SignView
 from yourapp.models import YourModel
 
+
 class JurySigningView(SignView):
     template_name = 'yourapp/jury_signing.html'
 
@@ -153,10 +275,11 @@ class JurySigningView(SignView):
 ```
 
 You must provide:
- - a `get_related_object()` method that may be useful for explaining the context of signature
- - the template which must contains a form that may look like this:
 
-```html+django
+- a `get_related_object()` method that may be useful for explaining the context of signature
+- the template which must contains a form that may look like this:
+
+```html
 {% extends "layout.html" %}
 {% load i18n bootstrap3 %}
 
@@ -195,12 +318,12 @@ You must provide:
 {% endblock %}
 ```
 
-You may notice that this view is used both for signing by PDF (on behalf of an actor) or as result of clicking 
-an e-mail link.
+You may notice that this view is used both for signing by PDF (on behalf of an actor) or as result of clicking an e-mail
+link.
 
 ## Checking if all actors have signed
 
-You may check within a queryset if all actors have signed by using the `all_signed` lookup or by checking the property 
+You may check within a queryset if all actors have signed by using the `all_signed` lookup or by checking the property
 onto the field:
 
 ```python
@@ -212,8 +335,8 @@ assert YourModel.objects.first().jury.all_signed
 
 # Utilities
 
-By default, the related object author is responsible for sending invites to actors (by clicking on the links).
-If needed, it is possible to implement a sequential order by programmatically sending invites:
+By default, the related object author is responsible for sending invites to actors (by clicking on the links). If
+needed, it is possible to implement a sequential order by programmatically sending invites:
 
 ```python
 from yourapp.models import YourModel
@@ -243,9 +366,11 @@ def signed(sender: YourModel, actor: Actor, action=None, pdf=False, comment='', 
         name,
     )
 
+
 @receiver(signed, sender=YourModel)
 def approved(sender: YourModel, actor: Actor, comment='', **kwargs):
     pass
+
 
 @receiver(signed, sender=YourModel)
 def declined(sender: YourModel, actor: Actor, comment='', **kwargs):

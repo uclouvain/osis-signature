@@ -23,33 +23,16 @@
 #    see http://www.gnu.org/licenses/.
 #
 # ##############################################################################
+from django import template
 
-import factory
-from django.conf import settings
-
-from osis_signature.models import Process, Actor
+register = template.Library()
 
 
-class ProcessFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Process
-
-
-class InternalActorFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Actor
-
-    process = factory.SubFactory(ProcessFactory)
-    person = factory.SubFactory('base.tests.factories.person.PersonFactory')
-
-
-class ExternalActorFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Actor
-
-    process = factory.SubFactory(ProcessFactory)
-    email = factory.Faker('email')
-    first_name = factory.Faker('first_name')
-    last_name = factory.Faker('last_name')
-    language = settings.LANGUAGE_CODE_EN
-    birth_date = factory.Faker('date_of_birth')
+@register.inclusion_tag('osis_signature/signature_table.html')
+def signature_table(process):
+    if not process:
+        raise ValueError("Process is non-existent")
+    return {
+        'process': process,
+        'actors': process.actors.all(),
+    }

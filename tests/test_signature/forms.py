@@ -24,32 +24,12 @@
 #
 # ##############################################################################
 
-import factory
-from django.conf import settings
-
-from osis_signature.models import Process, Actor
-
-
-class ProcessFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Process
+from osis_signature.contrib.forms import ActorForm
+from osis_signature.models import Actor
+from osis_signature.tests.test_signature.models import SpecialActor
 
 
-class InternalActorFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Actor
-
-    process = factory.SubFactory(ProcessFactory)
-    person = factory.SubFactory('base.tests.factories.person.PersonFactory')
-
-
-class ExternalActorFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Actor
-
-    process = factory.SubFactory(ProcessFactory)
-    email = factory.Faker('email')
-    first_name = factory.Faker('first_name')
-    last_name = factory.Faker('last_name')
-    language = settings.LANGUAGE_CODE_EN
-    birth_date = factory.Faker('date_of_birth')
+class SpecialActorForm(ActorForm):
+    class Meta(ActorForm.Meta):
+        model = SpecialActor
+        fields = ['civility'] + Actor.widget_fields

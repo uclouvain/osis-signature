@@ -25,7 +25,7 @@ class Migration(migrations.Migration):
                 ('language', models.CharField(blank=True, choices=[('fr-be', 'French'), ('en', 'English')], max_length=30, null=True, verbose_name='Language')),
                 ('birth_date', models.DateField(blank=True, null=True, verbose_name='Birth date')),
                 ('pdf_file', osis_document.contrib.fields.FileField(base_field=models.UUIDField(), default=list, size=1, verbose_name='PDF file')),
-                ('comment', models.TextField(default='', verbose_name='Comment')),
+                ('comment', models.TextField(blank=True, default='', verbose_name='Comment')),
                 ('person', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, to='base.Person', verbose_name='Person')),
             ],
             options={
@@ -60,7 +60,7 @@ class Migration(migrations.Migration):
         migrations.AddField(
             model_name='actor',
             name='process',
-            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='osis_signature.Process', verbose_name='Signature process'),
+            field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='osis_signature.Process', verbose_name='Signature process', related_name='actors'),
         ),
         migrations.AddConstraint(
             model_name='actor',

@@ -24,32 +24,30 @@
 #
 # ##############################################################################
 
-import factory
-from django.conf import settings
+from django.test import TestCase
 
-from osis_signature.models import Process, Actor
-
-
-class ProcessFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Process
+from osis_signature.enums import SignatureState
+from osis_signature.tests.factories import ExternalActorFactory
+from osis_signature.utils import get_signing_token, get_actor_from_token
 
 
-class InternalActorFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Actor
+class UtilsTestCase(TestCase):
+    def test_get_token(self):
+        actor = ExternalActorFactory()
+        with self.assertRaises(ValueError):
+            get_signing_token(actor)
 
-    process = factory.SubFactory(ProcessFactory)
-    person = factory.SubFactory('base.tests.factories.person.PersonFactory')
+        actor.switch_state(SignatureState.INVITED)
+        self.assertIsNotNone(get_signing_token(actor))
 
+    def test_get_actor(self):
+        actor = ExternalActorFactory()
+        actor.switch_state(SignatureState.INVITED)
 
-class ExternalActorFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Actor
+        old_token = get_signing_token(actor)
 
-    process = factory.SubFactory(ProcessFactory)
-    email = factory.Faker('email')
-    first_name = factory.Faker('first_name')
-    last_name = factory.Faker('last_name')
-    language = settings.LANGUAGE_CODE_EN
-    birth_date = factory.Faker('date_of_birth')
+        actor.switch_state(SignatureState.INVITED)
+        good_token = get_signing_token(actor)
+
+        self.assertIsNone(get_actor_from_token(old_token))
+        self.assertEqual(get_actor_from_token(good_token), actor)

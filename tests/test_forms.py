@@ -23,33 +23,28 @@
 #    see http://www.gnu.org/licenses/.
 #
 # ##############################################################################
+from django.core.exceptions import ImproperlyConfigured
+from django.test import TestCase
 
-import factory
-from django.conf import settings
-
-from osis_signature.models import Process, Actor
-
-
-class ProcessFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Process
+from osis_signature.contrib.forms import CommentSigningForm
+from osis_signature.tests.factories import ExternalActorFactory
 
 
-class InternalActorFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Actor
+class FormsTestCase(TestCase):
+    def test_signing_form(self):
+        actor = ExternalActorFactory()
+        form = CommentSigningForm({}, instance=actor)
+        with self.assertRaises(ImproperlyConfigured):
+            form.is_valid()
 
-    process = factory.SubFactory(ProcessFactory)
-    person = factory.SubFactory('base.tests.factories.person.PersonFactory')
+        form = CommentSigningForm({'submitted': ['declined']}, instance=actor)
+        self.assertTrue(form.is_valid())
+        self.assertFalse(form.cleaned_data['approved'])
 
+        form = CommentSigningForm({'submitted': ['approved']}, instance=actor)
+        self.assertTrue(form.is_valid())
+        self.assertTrue(form.cleaned_data['approved'])
 
-class ExternalActorFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Actor
-
-    process = factory.SubFactory(ProcessFactory)
-    email = factory.Faker('email')
-    first_name = factory.Faker('first_name')
-    last_name = factory.Faker('last_name')
-    language = settings.LANGUAGE_CODE_EN
-    birth_date = factory.Faker('date_of_birth')
+        self.assertFalse(actor.states.exists())
+        form.save()
+        self.assertTrue(actor.states.exists())

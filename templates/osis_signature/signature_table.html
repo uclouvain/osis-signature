@@ -1,0 +1,23 @@
+{% load i18n %}
+<table class="table table-striped">
+  <thead>
+  <tr>
+    <th>#</th>
+    <th>{% trans "First name" %}</th>
+    <th>{% trans "Last name" %}</th>
+    <th>{% trans "E-mail" %}</th>
+    <th>{% trans "Status" %}</th>
+  </tr>
+  </thead>
+  <tbody>
+  {% for actor in actors %}
+  <tr>
+    <th scope="row">{{ forloop.counter }}</th>
+    <td>{{ actor.computed.first_name }}</td>
+    <td>{{ actor.computed.last_name }}</td>
+    <td>{{ actor.computed.email }}</td>
+    <td>{{ actor.get_state_display }}</td>
+  </tr>
+  {% endfor %}
+  </tbody>
+</table>
