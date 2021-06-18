@@ -25,11 +25,32 @@
 # ##############################################################################
 
 import factory
+from django.conf import settings
 
-from osis_signature.models import Process
+from osis_signature.enums import SignatureState
+from osis_signature.models import Process, Actor, StateHistory
 
 
 class ProcessFactory(factory.django.DjangoModelFactory):
     class Meta:
         model = Process
 
+
+class InternalActorFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Actor
+
+    process = factory.SubFactory(ProcessFactory)
+    person = factory.SubFactory('base.tests.factories.person.PersonFactory')
+
+
+class ExternalActorFactory(factory.django.DjangoModelFactory):
+    class Meta:
+        model = Actor
+
+    process = factory.SubFactory(ProcessFactory)
+    email = factory.Faker('email')
+    first_name = factory.Faker('first_name')
+    last_name = factory.Faker('last_name')
+    language = settings.LANGUAGE_CODE_EN
+    birth_date = factory.Faker('date_of_birth')

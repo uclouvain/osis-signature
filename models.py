@@ -27,6 +27,7 @@ import uuid
 
 from django.conf import settings
 from django.db import models
+from django.db.models.functions import Coalesce
 from django.utils.translation import gettext_lazy as _
 
 from osis_document.contrib import FileField
@@ -49,6 +50,18 @@ class Process(models.Model):
         verbose_name_plural = _("Processes")
 
 
+class ActorManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset().annotate(
+            last_state=Coalesce(
+                models.Subquery(StateHistory.objects.filter(
+                    actor=models.OuterRef('pk'),
+                ).values('state')[:1]),
+                models.Value(SignatureState.NOT_INVITED.name),
+            ),
+        )
+
+
 class Actor(models.Model):
     process = models.ForeignKey(
         'osis_signature.Process',
@@ -59,31 +72,33 @@ class Actor(models.Model):
         'base.Person',
         on_delete=models.PROTECT,
         null=True,
+        blank=True,
         verbose_name=_("Person"),
     )
     first_name = models.CharField(
         max_length=50,
         blank=True,
-        null=True,
+        default='',
         db_index=True,
         verbose_name=_("First name"),
     )
     last_name = models.CharField(
         max_length=50,
         blank=True,
-        null=True,
+        default='',
         verbose_name=_("Last name"),
     )
     email = models.EmailField(
         max_length=255,
-        null=True,
+        blank=True,
+        default='',
         verbose_name=_("E-mail"),
     )
     language = models.CharField(
         max_length=30,
+        blank=True,
         null=True,
         choices=settings.LANGUAGES,
-        default=settings.LANGUAGE_CODE,
         verbose_name=_("Language"),
     )
     birth_date = models.DateField(
@@ -96,26 +111,51 @@ class Actor(models.Model):
         mimetypes=['application/pdf'],
         verbose_name=_("PDF file"),
     )
-    state = models.CharField(
-        choices=SignatureState.choices(),
-        default=SignatureState.NOT_INVITED.name,
-        verbose_name=_("State"),
-        max_length=30,
-    )
     comment = models.TextField(
         default='',
         verbose_name=_("Comment"),
     )
 
+    objects = ActorManager()
+
+    @property
+    def state(self):
+        if hasattr(self, 'last_state'):
+            return self.last_state
+        last_state = self.states.last()
+        if last_state:
+            return last_state.state
+        return SignatureState.NOT_INVITED.name
+
     class Meta:
         verbose_name = _("Actor")
         constraints = [
             models.CheckConstraint(
+                # @formatter:off
                 check=(
-                        (models.Q(email__isnull=True) | models.Q(person__isnull=True))
-                        & ~models.Q(email__isnull=True, person__isnull=True)
+                        (  # Either external data is empty
+                                models.Q(
+                                    first_name='',
+                                    last_name='',
+                                    email='',
+                                    language__isnull=True,
+                                    birth_date__isnull=True,
+                                )
+                                # Or person is empty
+                                | models.Q(person__isnull=True)
+                        )
+                        # But not all can be empty
+                        & ~models.Q(
+                            person__isnull=True,
+                            first_name='',
+                            last_name='',
+                            email='',
+                            language__isnull=True,
+                            birth_date__isnull=True,
+                        )
                 ),
-                name='email_xor_person',
+                # @formatter:on
+                name='external_xor_person',
             )
         ]
 
@@ -125,10 +165,10 @@ class StateHistory(models.Model):
         'osis_signature.Actor',
         on_delete=models.CASCADE,
         verbose_name=_("Actor"),
+        related_name='states',
     )
     state = models.CharField(
         choices=SignatureState.choices(),
-        default=SignatureState.NOT_INVITED.name,
         verbose_name=_("State"),
         max_length=30,
     )
@@ -140,3 +180,4 @@ class StateHistory(models.Model):
     class Meta:
         verbose_name = _("State history entry")
         verbose_name_plural = _("State history entries")
+        ordering = ('created_at',)

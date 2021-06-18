@@ -23,12 +23,16 @@
 #    see http://www.gnu.org/licenses/.
 #
 # ##############################################################################
+from datetime import date
+
+from django.conf import settings
 from django.db import IntegrityError
 from django.test import TestCase
 
 from base.tests.factories.person import PersonFactory
-from osis_signature.models import Actor
-from osis_signature.tests.factories import ProcessFactory
+from osis_signature.enums import SignatureState
+from osis_signature.models import Actor, StateHistory
+from osis_signature.tests.factories import ProcessFactory, ExternalActorFactory
 
 
 class ModelsTestCase(TestCase):
@@ -37,16 +41,40 @@ class ModelsTestCase(TestCase):
         cls.process = ProcessFactory()
         cls.person = PersonFactory()
 
-    def test_actor_cant_be_created_without_person_or_email(self):
+    def test_actor_cant_be_created_without_person_or_external_data(self):
         with self.assertRaises(IntegrityError):
             Actor.objects.create(process=self.process)
 
-    def test_actor_cant_be_created_with_person_and_email(self):
+    def test_actor_cant_be_created_with_person_and_external_data(self):
         with self.assertRaises(IntegrityError):
             Actor.objects.create(process=self.process, email='foo@bar.com', person=self.person)
 
-    def test_actor_can_be_created_with_email(self):
-        Actor.objects.create(process=self.process, email='foo@bar.com')
+    def test_actor_can_be_created_with_external_data(self):
+        Actor.objects.create(
+            process=self.process,
+            email='foo@bar.com',
+            first_name='John',
+            last_name='Doe',
+            language=settings.LANGUAGE_CODE_EN,
+            birth_date=date(1980, 1, 1),
+        )
 
     def test_actor_can_be_created_with_person(self):
         Actor.objects.create(process=self.process, person=self.person)
+
+    def test_actor_default_state(self):
+        actor = ExternalActorFactory()
+        with self.assertNumQueries(1):
+            self.assertEqual(actor.state, SignatureState.NOT_INVITED.name)
+        first_actor = Actor.objects.first()
+        with self.assertNumQueries(0):
+            self.assertEqual(first_actor.state, SignatureState.NOT_INVITED.name)
+
+    def test_actor_current_state(self):
+        actor = ExternalActorFactory()
+        StateHistory.objects.create(actor=actor, state=SignatureState.INVITED.name)
+        with self.assertNumQueries(1):
+            self.assertEqual(actor.state, SignatureState.INVITED.name)
+        first_actor = Actor.objects.first()
+        with self.assertNumQueries(0):
+            self.assertEqual(first_actor.state, SignatureState.INVITED.name)
