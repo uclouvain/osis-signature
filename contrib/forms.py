@@ -46,7 +46,7 @@ class ActorForm(EmptyPermittedForm, forms.ModelForm):
         }
 
 
-class InternalActorForm(forms.ModelForm, EmptyPermittedForm):
+class InternalActorForm(EmptyPermittedForm, forms.ModelForm):
     class Meta:
         model = Actor
         fields = ['person']
