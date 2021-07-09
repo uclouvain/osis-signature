@@ -26,8 +26,10 @@
 from django.contrib import messages
 from django.forms import Form
 from django.http import Http404
-from django.shortcuts import render, get_object_or_404, redirect, resolve_url
+from django.shortcuts import redirect, resolve_url
+from django.urls import reverse_lazy
 from django.views import generic
+from django.views.generic.detail import SingleObjectMixin
 
 from osis_signature.contrib.forms import CommentSigningForm
 from osis_signature.contrib.mixins import ActorFormsetMixin
@@ -58,23 +60,30 @@ class DoubleCreateView(ActorFormsetMixin, generic.CreateView):
     }
 
 
-def send_invite(request, actor_pk):
-    actor = get_object_or_404(Actor, pk=actor_pk)
-    form = Form(request.POST or None)
-    if form.is_valid():
-        actor.switch_state(SignatureState.INVITED)
-        url = resolve_url('sign', token=get_signing_token(actor))
-        messages.success(request, url)
+class SendInviteView(SingleObjectMixin, generic.FormView):
+    form_class = Form
+    model = Actor
+    template_name = "test_signature/send_invite.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        self.object.switch_state(SignatureState.INVITED)
+        url = resolve_url('sign', token=get_signing_token(self.object))
+        messages.success(self.request, url)
         return redirect('home')
-    return render(request, "test_signature/send_invite.html", {'form': form, 'actor': actor})
 
 
-def signing_view(request, token):
-    actor = get_actor_from_token(token)
-    if not actor:
-        raise Http404
-    form = CommentSigningForm(request.POST or None, instance=actor)
-    if form.is_valid():
-        form.save()
-        return redirect('home')
-    return render(request, "test_signature/sign.html", {'form': form, 'actor': actor})
+class SigningView(generic.UpdateView):
+    form_class = CommentSigningForm
+    model = Actor
+    template_name = "test_signature/sign.html"
+    success_url = reverse_lazy('home')
+
+    def get_object(self, queryset=None):
+        actor = get_actor_from_token(self.kwargs['token'])
+        if not actor:
+            raise Http404
+        return actor

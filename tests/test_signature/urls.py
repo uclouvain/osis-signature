@@ -34,7 +34,7 @@ urlpatterns = [
     path('double-create', views.DoubleCreateView.as_view(), name='double-create'),
     path('edit/<int:pk>', views.SimpleUpdateView.as_view(), name='simple-update'),
     path('<int:pk>', DetailView.as_view(model=SimpleModel), name='simple-detail'),
-    path('send-invite/<int:actor_pk>', views.send_invite, name="send-invite"),
-    path('sign/<path:token>', views.signing_view, name="sign"),
+    path('send-invite/<int:pk>', views.SendInviteView.as_view(), name="send-invite"),
+    path('sign/<path:token>', views.SigningView.as_view(), name="sign"),
     path('signature/', include('osis_signature.urls', namespace='test_signature')),
 ]

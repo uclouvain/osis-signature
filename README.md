@@ -45,6 +45,7 @@ Attach a process by declaring a `SignatureProcessField` to enable adding actors 
 from django.db import models
 from osis_signature.contrib.fields import SignatureProcessField
 
+
 class YourModel(models.Model):
     ...
     jury = SignatureProcessField()
@@ -176,8 +177,8 @@ from yourapp import views
 
 app_name = 'yourapp'
 urlpatterns = [
-    path('send-invite/<int:actor_pk>', views.send_invite, name="send-invite"),
-    path('sign/<path:token>', views.signing_view, name="sign"),
+    path('send-invite/<int:pk>', views.SendInviteView.as_view(), name="send-invite"),
+    path('sign/<path:token>', views.SigningView.as_view(), name="sign"),
 ]
 ```
 
@@ -193,7 +194,9 @@ other modules such as
 
 ```python
 from django.forms import Form
-from django.shortcuts import render, get_object_or_404, redirect, resolve_url
+from django.shortcuts import redirect, resolve_url
+from django.views import generic
+from django.views.generic.detail import SingleObjectMixin
 from osis_history.utilities import add_history_entry
 from osis_signature.utils import get_signing_token
 from osis_mail_template import generate_email
@@ -202,10 +205,17 @@ from osis_signature.models import Actor, SignatureState
 from yourapp.mail_templates import YOUR_TEMPLATE_MAIL_ID
 
 
-def send_invite(request, actor_pk):
-    actor = get_object_or_404(Actor, pk=actor_pk)
-    form = Form(request.POST or None)
-    if form.is_valid():
+class SendInviteView(SingleObjectMixin, generic.FormView):
+    form_class = Form
+    model = Actor
+    template_name = "send_invite.html"
+
+    def dispatch(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        actor = self.object
         actor.switch_state(SignatureState.INVITED)
         tokens = {
             "first_name": actor.computed.first_name,
@@ -223,10 +233,9 @@ def send_invite(request, actor_pk):
             actor.process_id,
             '{} notifié par e-mail'.format(actor.computed.email),
             '{} notified by mail'.format(actor.computed.email),
-            request.user.person.username,
+            self.request.user.person.username,
         )
         return redirect('home')
-    return render(request, "send_invite.html", {'form': form, 'actor': actor})
 ```
 
 ### Implement signing view
@@ -235,22 +244,27 @@ To implement the logic behind a "Sign uploading PDF" button, or an actor clickin
 e-mail. You must implement a view and may use either `CommentSigningForm` or `PdfSigningForm` :
 
 ```python
+
 from django.http import Http404
-from django.shortcuts import render, redirect
+from django.urls import reverse_lazy
+from django.views import generic
 
 from osis_signature.contrib.forms import CommentSigningForm
+from osis_signature.models import Actor
 from osis_signature.utils import get_actor_from_token
 
 
-def signing_view(request, token):
-    actor = get_actor_from_token(token)
-    if not actor:
-        raise Http404("Wrong token")
-    form = CommentSigningForm(request.POST or None, instance=actor)
-    if form.is_valid():
-        form.save()
-        return redirect('home')
-    return render(request, "sign.html", {'form': form, 'actor': actor})
+class SigningView(generic.UpdateView):
+    form_class = CommentSigningForm
+    model = Actor
+    template_name = "sign.html"
+    success_url = reverse_lazy('home')
+
+    def get_object(self, queryset=None):
+        actor = get_actor_from_token(self.kwargs['token'])
+        if not actor:
+            raise Http404
+        return actor
 ```
 
 And for the template `sign.html`:
@@ -295,7 +309,7 @@ an e-mail link.
 
 ## Checking if all actors have signed
 
-You may check within a queryset if all actors have signed by using the `all_signed` lookup or by checking the manager 
+You may check within a queryset if all actors have signed by using the `all_signed` lookup or by checking the manager
 method on the field:
 
 ```python
