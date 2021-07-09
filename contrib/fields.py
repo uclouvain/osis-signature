@@ -25,33 +25,39 @@
 # ##############################################################################
 
 from django.db import models
-from django.shortcuts import resolve_url
+from django.db.models.fields.related_lookups import RelatedLookupMixin
+from django.utils.translation import gettext_lazy as _
 
+from osis_signature.enums import SignatureState
 from osis_signature.models import Actor
-from osis_signature.contrib.fields import SignatureProcessField
 
 
-class SimpleModel(models.Model):
-    title = models.CharField(max_length=200)
-    jury = SignatureProcessField(related_name='+')
+class SignatureProcessField(models.ForeignKey):
+    description = _("A process for signing an object")
 
-    def get_absolute_url(self):
-        return resolve_url('simple-detail', pk=self.pk)
-
-
-class DoubleModel(models.Model):
-    title = models.CharField(max_length=200)
-    jury = SignatureProcessField(related_name='+')
-    special_jury = SignatureProcessField(related_name='+')
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault('to', 'osis_signature.Process')
+        # The process should be deleted by default, but allow to override if needed
+        kwargs.setdefault('on_delete', models.CASCADE)
+        kwargs.setdefault('editable', False)
+        kwargs.setdefault('null', True)
+        super().__init__(*args, **kwargs)
 
 
-class SpecialActor(Actor):
-    civility = models.CharField(
-        max_length=30,
-        choices=(
-            ('mr', 'M.'),
-            ('mme', 'Mme'),
+@SignatureProcessField.register_lookup
+class AllSignedLookup(RelatedLookupMixin, models.Lookup):
+    lookup_name = 'all_signed'
+    prepare_rhs = False
+
+    def as_sql(self, compiler, connection):
+        sql, params = compiler.compile(
+            Actor.objects.filter(
+                process_id=self.lhs,
+            ).exclude(
+                last_state=SignatureState.APPROVED.name,
+            ).values('pk').query
         )
-    )
-
-    external_fields = ['civility'] + Actor.external_fields
+        if self.rhs:
+            return "NOT EXISTS(%s)" % sql, params
+        else:
+            return "EXISTS(%s)" % sql, params

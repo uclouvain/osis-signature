@@ -24,34 +24,38 @@
 #
 # ##############################################################################
 
-from django.db import models
-from django.shortcuts import resolve_url
+from django.test import TestCase
 
-from osis_signature.models import Actor
-from osis_signature.contrib.fields import SignatureProcessField
-
-
-class SimpleModel(models.Model):
-    title = models.CharField(max_length=200)
-    jury = SignatureProcessField(related_name='+')
-
-    def get_absolute_url(self):
-        return resolve_url('simple-detail', pk=self.pk)
+from osis_signature.enums import SignatureState
+from osis_signature.tests.factories import ExternalActorFactory
+from osis_signature.tests.test_signature.models import SimpleModel
 
 
-class DoubleModel(models.Model):
-    title = models.CharField(max_length=200)
-    jury = SignatureProcessField(related_name='+')
-    special_jury = SignatureProcessField(related_name='+')
-
-
-class SpecialActor(Actor):
-    civility = models.CharField(
-        max_length=30,
-        choices=(
-            ('mr', 'M.'),
-            ('mme', 'Mme'),
+class FieldLookupTestCase(TestCase):
+    def test_field_lookup(self):
+        actor = ExternalActorFactory()
+        SimpleModel.objects.create(
+            title="Foo",
+            jury=actor.process,
         )
-    )
+        self.assertTrue(SimpleModel.objects.filter(jury__all_signed=False).exists())
 
-    external_fields = ['civility'] + Actor.external_fields
+        actor.switch_state(SignatureState.APPROVED)
+        self.assertTrue(SimpleModel.objects.filter(jury__all_signed=True).exists())
+
+        ExternalActorFactory(process=actor.process)
+        self.assertFalse(SimpleModel.objects.filter(jury__all_signed=True).exists())
+
+    def test_manager(self):
+        actor = ExternalActorFactory()
+        instance = SimpleModel.objects.create(
+            title="Foo",
+            jury=actor.process,
+        )
+        self.assertFalse(instance.jury.actors.all_signed())
+
+        actor.switch_state(SignatureState.APPROVED)
+        self.assertTrue(instance.jury.actors.all_signed())
+
+        ExternalActorFactory(process=actor.process)
+        self.assertFalse(instance.jury.actors.all_signed())

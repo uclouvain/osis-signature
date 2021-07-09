@@ -65,6 +65,11 @@ class ActorManager(models.Manager):
             ).order_by('-created_at').values('created_at')[:1]),
         )
 
+    def all_signed(self):
+        return not self.get_queryset().exclude(
+            last_state=SignatureState.APPROVED.name,
+        ).exists()
+
 
 class Actor(models.Model):
     process = models.ForeignKey(
@@ -169,6 +174,7 @@ class Actor(models.Model):
                 name='external_xor_person',
             )
         ]
+        base_manager_name = 'objects'
 
     def __str__(self):
         if not self.has_external_data() and not self.person:
