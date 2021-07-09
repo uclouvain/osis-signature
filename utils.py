@@ -23,33 +23,26 @@
 #    see http://www.gnu.org/licenses/.
 #
 # ##############################################################################
+from datetime import datetime
 
-import factory
-from django.conf import settings
+from django.core import signing
 
-from osis_signature.models import Process, Actor
-
-
-class ProcessFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Process
+from osis_signature.models import Actor
 
 
-class InternalActorFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Actor
+def get_signing_token(actor: Actor):
+    latest_state = actor.states.last()
+    if not latest_state:
+        raise ValueError("Can't generate token: no state recorded for this actor yet")
+    return signing.dumps({
+        'date': latest_state.created_at.isoformat(),
+        'pk': actor.pk,
+    })
 
-    process = factory.SubFactory(ProcessFactory)
-    person = factory.SubFactory('base.tests.factories.person.PersonFactory')
 
-
-class ExternalActorFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Actor
-
-    process = factory.SubFactory(ProcessFactory)
-    email = factory.Faker('email')
-    first_name = factory.Faker('first_name')
-    last_name = factory.Faker('last_name')
-    language = settings.LANGUAGE_CODE_EN
-    birth_date = factory.Faker('date_of_birth')
+def get_actor_from_token(token):
+    payload = signing.loads(token)
+    actor = Actor.objects.get(pk=payload['pk'])
+    date = datetime.fromisoformat(payload['date'])
+    if actor.states.latest('created_at').created_at == date:
+        return actor

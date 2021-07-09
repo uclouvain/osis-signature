@@ -24,32 +24,38 @@
 #
 # ##############################################################################
 
-import factory
-from django.conf import settings
+from django.test import TestCase
 
-from osis_signature.models import Process, Actor
-
-
-class ProcessFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Process
+from osis_signature.enums import SignatureState
+from osis_signature.tests.factories import ExternalActorFactory
+from osis_signature.tests.test_signature.models import SimpleModel
 
 
-class InternalActorFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Actor
+class FieldLookupTestCase(TestCase):
+    def test_field_lookup(self):
+        actor = ExternalActorFactory()
+        SimpleModel.objects.create(
+            title="Foo",
+            jury=actor.process,
+        )
+        self.assertTrue(SimpleModel.objects.filter(jury__all_signed=False).exists())
 
-    process = factory.SubFactory(ProcessFactory)
-    person = factory.SubFactory('base.tests.factories.person.PersonFactory')
+        actor.switch_state(SignatureState.APPROVED)
+        self.assertTrue(SimpleModel.objects.filter(jury__all_signed=True).exists())
 
+        ExternalActorFactory(process=actor.process)
+        self.assertFalse(SimpleModel.objects.filter(jury__all_signed=True).exists())
 
-class ExternalActorFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Actor
+    def test_manager(self):
+        actor = ExternalActorFactory()
+        instance = SimpleModel.objects.create(
+            title="Foo",
+            jury=actor.process,
+        )
+        self.assertFalse(instance.jury.actors.all_signed())
 
-    process = factory.SubFactory(ProcessFactory)
-    email = factory.Faker('email')
-    first_name = factory.Faker('first_name')
-    last_name = factory.Faker('last_name')
-    language = settings.LANGUAGE_CODE_EN
-    birth_date = factory.Faker('date_of_birth')
+        actor.switch_state(SignatureState.APPROVED)
+        self.assertTrue(instance.jury.actors.all_signed())
+
+        ExternalActorFactory(process=actor.process)
+        self.assertFalse(instance.jury.actors.all_signed())

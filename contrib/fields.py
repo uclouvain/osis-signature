@@ -24,32 +24,40 @@
 #
 # ##############################################################################
 
-import factory
-from django.conf import settings
+from django.db import models
+from django.db.models.fields.related_lookups import RelatedLookupMixin
+from django.utils.translation import gettext_lazy as _
 
-from osis_signature.models import Process, Actor
-
-
-class ProcessFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Process
+from osis_signature.enums import SignatureState
+from osis_signature.models import Actor
 
 
-class InternalActorFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Actor
+class SignatureProcessField(models.ForeignKey):
+    description = _("A process for signing an object")
 
-    process = factory.SubFactory(ProcessFactory)
-    person = factory.SubFactory('base.tests.factories.person.PersonFactory')
+    def __init__(self, *args, **kwargs):
+        kwargs.setdefault('to', 'osis_signature.Process')
+        # The process should be deleted by default, but allow to override if needed
+        kwargs.setdefault('on_delete', models.CASCADE)
+        kwargs.setdefault('editable', False)
+        kwargs.setdefault('null', True)
+        super().__init__(*args, **kwargs)
 
 
-class ExternalActorFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Actor
+@SignatureProcessField.register_lookup
+class AllSignedLookup(RelatedLookupMixin, models.Lookup):
+    lookup_name = 'all_signed'
+    prepare_rhs = False
 
-    process = factory.SubFactory(ProcessFactory)
-    email = factory.Faker('email')
-    first_name = factory.Faker('first_name')
-    last_name = factory.Faker('last_name')
-    language = settings.LANGUAGE_CODE_EN
-    birth_date = factory.Faker('date_of_birth')
+    def as_sql(self, compiler, connection):
+        sql, params = compiler.compile(
+            Actor.objects.filter(
+                process_id=self.lhs,
+            ).exclude(
+                last_state=SignatureState.APPROVED.name,
+            ).values('pk').query
+        )
+        if self.rhs:
+            return "NOT EXISTS(%s)" % sql, params
+        else:
+            return "EXISTS(%s)" % sql, params

@@ -23,16 +23,18 @@
 #    see http://www.gnu.org/licenses/.
 #
 # ##############################################################################
+import datetime
 from datetime import date
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import IntegrityError
 from django.test import TestCase
 
 from base.tests.factories.person import PersonFactory
 from osis_signature.enums import SignatureState
-from osis_signature.models import Actor, StateHistory
-from osis_signature.tests.factories import ProcessFactory, ExternalActorFactory
+from osis_signature.models import Actor
+from osis_signature.tests.factories import ProcessFactory, ExternalActorFactory, InternalActorFactory
 
 
 class ModelsTestCase(TestCase):
@@ -44,10 +46,18 @@ class ModelsTestCase(TestCase):
     def test_actor_cant_be_created_without_person_or_external_data(self):
         with self.assertRaises(IntegrityError):
             Actor.objects.create(process=self.process)
+        with self.assertRaises(ValidationError):
+            Actor(process=self.process).clean()
 
     def test_actor_cant_be_created_with_person_and_external_data(self):
         with self.assertRaises(IntegrityError):
             Actor.objects.create(process=self.process, email='foo@bar.com', person=self.person)
+        with self.assertRaises(ValidationError):
+            Actor(process=self.process, email='foo@bar.com', person=self.person).clean()
+
+    def test_actor_cant_have_partial_external_data(self):
+        with self.assertRaises(ValidationError):
+            Actor(process=self.process, email='foo@bar.com').clean()
 
     def test_actor_can_be_created_with_external_data(self):
         Actor.objects.create(
@@ -58,6 +68,14 @@ class ModelsTestCase(TestCase):
             language=settings.LANGUAGE_CODE_EN,
             birth_date=date(1980, 1, 1),
         )
+        Actor(
+            process=self.process,
+            email='foo@bar.com',
+            first_name='John',
+            last_name='Doe',
+            language=settings.LANGUAGE_CODE_EN,
+            birth_date=date(1980, 1, 1),
+        ).clean()
 
     def test_actor_can_be_created_with_person(self):
         Actor.objects.create(process=self.process, person=self.person)
@@ -72,9 +90,28 @@ class ModelsTestCase(TestCase):
 
     def test_actor_current_state(self):
         actor = ExternalActorFactory()
-        StateHistory.objects.create(actor=actor, state=SignatureState.INVITED.name)
+        actor.switch_state(SignatureState.INVITED)
         with self.assertNumQueries(1):
             self.assertEqual(actor.state, SignatureState.INVITED.name)
         first_actor = Actor.objects.first()
         with self.assertNumQueries(0):
             self.assertEqual(first_actor.state, SignatureState.INVITED.name)
+
+    def test_computed(self):
+        actor = ExternalActorFactory()
+        self.assertEqual(actor.computed.first_name, actor.first_name)
+        actor = InternalActorFactory()
+        self.assertEqual(actor.computed.first_name, actor.person.first_name)
+        self.assertNotEqual(actor.first_name, actor.computed.first_name)
+
+    def test_string(self):
+        self.assertEqual(str(Actor()), "Actor object (None)")
+        self.assertEqual(str(ExternalActorFactory(
+            email='foo@example.com',
+            first_name='John',
+            last_name='Doe',
+            language='fr',
+            birth_date=datetime.date(1980, 1, 1),
+        )), 'Actor (John Doe foo@example.com fr 1980-01-01)')
+        person = PersonFactory()
+        self.assertIn(str(person), str(InternalActorFactory(person=person)))

@@ -23,33 +23,18 @@
 #    see http://www.gnu.org/licenses/.
 #
 # ##############################################################################
+from django.urls import path, include
+from django.views.generic import DetailView
 
-import factory
-from django.conf import settings
+from osis_signature.tests.test_signature import views
+from osis_signature.tests.test_signature.models import SimpleModel
 
-from osis_signature.models import Process, Actor
-
-
-class ProcessFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Process
-
-
-class InternalActorFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Actor
-
-    process = factory.SubFactory(ProcessFactory)
-    person = factory.SubFactory('base.tests.factories.person.PersonFactory')
-
-
-class ExternalActorFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Actor
-
-    process = factory.SubFactory(ProcessFactory)
-    email = factory.Faker('email')
-    first_name = factory.Faker('first_name')
-    last_name = factory.Faker('last_name')
-    language = settings.LANGUAGE_CODE_EN
-    birth_date = factory.Faker('date_of_birth')
+urlpatterns = [
+    path('simple-create', views.SimpleCreateView.as_view(), name='simple-create'),
+    path('double-create', views.DoubleCreateView.as_view(), name='double-create'),
+    path('edit/<int:pk>', views.SimpleUpdateView.as_view(), name='simple-update'),
+    path('<int:pk>', DetailView.as_view(model=SimpleModel), name='simple-detail'),
+    path('send-invite/<int:pk>', views.SendInviteView.as_view(), name="send-invite"),
+    path('sign/<path:token>', views.SigningView.as_view(), name="sign"),
+    path('signature/', include('osis_signature.urls', namespace='test_signature')),
+]

@@ -24,32 +24,34 @@
 #
 # ##############################################################################
 
-import factory
-from django.conf import settings
+from django.db import models
+from django.shortcuts import resolve_url
 
-from osis_signature.models import Process, Actor
-
-
-class ProcessFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Process
+from osis_signature.models import Actor
+from osis_signature.contrib.fields import SignatureProcessField
 
 
-class InternalActorFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Actor
+class SimpleModel(models.Model):
+    title = models.CharField(max_length=200)
+    jury = SignatureProcessField(related_name='+')
 
-    process = factory.SubFactory(ProcessFactory)
-    person = factory.SubFactory('base.tests.factories.person.PersonFactory')
+    def get_absolute_url(self):
+        return resolve_url('simple-detail', pk=self.pk)
 
 
-class ExternalActorFactory(factory.django.DjangoModelFactory):
-    class Meta:
-        model = Actor
+class DoubleModel(models.Model):
+    title = models.CharField(max_length=200)
+    jury = SignatureProcessField(related_name='+')
+    special_jury = SignatureProcessField(related_name='+')
 
-    process = factory.SubFactory(ProcessFactory)
-    email = factory.Faker('email')
-    first_name = factory.Faker('first_name')
-    last_name = factory.Faker('last_name')
-    language = settings.LANGUAGE_CODE_EN
-    birth_date = factory.Faker('date_of_birth')
+
+class SpecialActor(Actor):
+    civility = models.CharField(
+        max_length=30,
+        choices=(
+            ('mr', 'M.'),
+            ('mme', 'Mme'),
+        )
+    )
+
+    external_fields = ['civility'] + Actor.external_fields

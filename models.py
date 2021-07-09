@@ -26,6 +26,7 @@
 import uuid
 
 from django.conf import settings
+from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models.functions import Coalesce
 from django.utils.translation import gettext_lazy as _
@@ -56,10 +57,18 @@ class ActorManager(models.Manager):
             last_state=Coalesce(
                 models.Subquery(StateHistory.objects.filter(
                     actor=models.OuterRef('pk'),
-                ).values('state')[:1]),
+                ).order_by('-created_at').values('state')[:1]),
                 models.Value(SignatureState.NOT_INVITED.name),
             ),
+            last_state_date=models.Subquery(StateHistory.objects.filter(
+                actor=models.OuterRef('pk'),
+            ).order_by('-created_at').values('created_at')[:1]),
         )
+
+    def all_signed(self):
+        return not self.get_queryset().exclude(
+            last_state=SignatureState.APPROVED.name,
+        ).exists()
 
 
 class Actor(models.Model):
@@ -67,6 +76,7 @@ class Actor(models.Model):
         'osis_signature.Process',
         on_delete=models.CASCADE,
         verbose_name=_("Signature process"),
+        related_name='actors',
     )
     person = models.ForeignKey(
         'base.Person',
@@ -107,25 +117,31 @@ class Actor(models.Model):
         verbose_name=_("Birth date"),
     )
     pdf_file = FileField(
-        limit=1,
+        min_files=1,
+        max_files=1,
         mimetypes=['application/pdf'],
         verbose_name=_("PDF file"),
     )
     comment = models.TextField(
         default='',
         verbose_name=_("Comment"),
+        blank=True,
     )
 
     objects = ActorManager()
 
-    @property
-    def state(self):
-        if hasattr(self, 'last_state'):
-            return self.last_state
-        last_state = self.states.last()
-        if last_state:
-            return last_state.state
-        return SignatureState.NOT_INVITED.name
+    external_fields = [
+        'first_name',
+        'last_name',
+        'email',
+        'language',
+        'birth_date',
+    ]
+
+    widget_fields = [
+        'person',
+        *external_fields,
+    ]
 
     class Meta:
         verbose_name = _("Actor")
@@ -158,6 +174,65 @@ class Actor(models.Model):
                 name='external_xor_person',
             )
         ]
+        base_manager_name = 'objects'
+
+    def __str__(self):
+        if not self.has_external_data() and not self.person:
+            return super().__str__()
+        elif not self.has_external_data():
+            return "Actor (from person: {})".format(self.person)
+        return "Actor ({})".format(
+            ' '.join(str(getattr(self, field)) for field in self.external_fields)
+        )
+
+    @property
+    def computed(self):
+        # Return either external fields or filled from the person
+        if self.person_id:
+            return self.person
+        from base.models.person import Person
+        return Person(**{field: getattr(self, field) for field in self.external_fields})
+
+    @property
+    def state(self):
+        if hasattr(self, 'last_state'):
+            return self.last_state
+        last_state = self.states.last()
+        if last_state:
+            return last_state.state
+        return SignatureState.NOT_INVITED.name
+
+    def get_state_display(self):
+        return SignatureState.get_value(self.state)
+
+    def has_external_data(self):
+        return any(getattr(self, field) for field in self.external_fields)
+
+    def valid_external_data(self):
+        return all(getattr(self, field) for field in self.external_fields)
+
+    default_error_messages = {
+        'actor_internal_with_data': _("Actor can't be a person and have external data"),
+        'actor_all_external_data': _("Actor must provide all external data"),
+        'actor_data_required': _("Actor must have external data or person set"),
+    }
+
+    def clean(self):
+        if not self.has_external_data() and not self.person:
+            raise ValidationError(
+                self.default_error_messages['actor_data_required'], code='actor_data_required'
+            )
+        if self.has_external_data() and self.person:
+            raise ValidationError(
+                self.default_error_messages['actor_internal_with_data'], code='actor_internal_with_data'
+            )
+        if self.has_external_data() and not self.valid_external_data():
+            raise ValidationError(
+                self.default_error_messages['actor_all_external_data'], code='actor_all_external_data'
+            )
+
+    def switch_state(self, state: SignatureState):
+        StateHistory.objects.create(actor=self, state=state.name)
 
 
 class StateHistory(models.Model):
