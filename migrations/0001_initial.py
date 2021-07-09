@@ -36,7 +36,6 @@ class Migration(migrations.Migration):
             name='Process',
             fields=[
                 ('uuid', models.UUIDField(default=uuid.uuid4, primary_key=True, serialize=False)),
-                ('field_ref', models.CharField(editable=False, max_length=150, verbose_name='Field reference')),
             ],
             options={
                 'verbose_name': 'Process',

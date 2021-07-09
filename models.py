@@ -40,11 +40,6 @@ class Process(models.Model):
         default=uuid.uuid4,
         primary_key=True,
     )
-    field_ref = models.CharField(
-        editable=False,
-        max_length=150,
-        verbose_name=_("Field reference"),
-    )
 
     class Meta:
         verbose_name = _("Process")
