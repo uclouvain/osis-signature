@@ -186,7 +186,7 @@ class Actor(models.Model):
         if self.person_id:
             return self.person
         from base.models.person import Person
-        return Person(**{field: getattr(self, field) for field in self.external_fields})
+        return Person(**{field: getattr(self, field) for field in Actor.external_fields})
 
     @property
     def state(self):

@@ -82,6 +82,10 @@ class ActorFormsetMixin:
         context = {'form': form, self.actors_formset_context_object_name: formset}
         return self.render_to_response(self.get_context_data(**context))
 
+    def process_valid(self, form, formset):
+        """If the form and the formset are valid, allow to hook some logic."""
+        pass
+
     def post(self, request, *args, **kwargs):
         """Validate both form and formset, and attach process with actors if valid"""
         if isinstance(self, BaseCreateView):
@@ -91,17 +95,19 @@ class ActorFormsetMixin:
         form = self.get_form()
         formset = self.get_actor_formset()
         if form.is_valid() and formset.is_valid():
-            if self.object is None:
+            process = getattr(self.object, self.get_process_field(), None)
+
+            if not process:
                 # Create process
                 process = Process.objects.create()
                 setattr(form.instance, self.get_process_field(), process)
-            else:
-                process = getattr(self.object, self.get_process_field())
+
             response = super().form_valid(form)
 
             # Save actors
             formset.instance = process
             formset.save()
 
+            self.process_valid(form, formset)
             return response
         return self.process_invalid(form, formset)

@@ -24,12 +24,10 @@
 #
 # ##############################################################################
 from dal import autocomplete
+from django.contrib.auth.mixins import LoginRequiredMixin
 
 from base.models.person import Person
 
 
-class PersonAutocomplete(autocomplete.Select2QuerySetView):
-    def get_queryset(self):
-        if not self.request.user.is_authenticated:
-            return Person.objects.none()
-        return Person.objects.all().order_by('last_name', 'first_name')
+class UCLMemberAutocomplete(LoginRequiredMixin, autocomplete.Select2QuerySetView):
+    queryset = Person.objects.all().order_by('last_name', 'first_name')

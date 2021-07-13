@@ -29,5 +29,5 @@ from osis_signature.contrib import views
 
 app_name = 'osis_signature'
 urlpatterns = [
-    path('person-autocomplete', views.PersonAutocomplete.as_view(), name='person-autocomplete')
+    path('person-autocomplete', views.UCLMemberAutocomplete.as_view(), name='person-autocomplete')
 ]

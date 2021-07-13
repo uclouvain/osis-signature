@@ -30,6 +30,7 @@ class Migration(migrations.Migration):
             ],
             options={
                 'verbose_name': 'Actor',
+                'base_manager_name': 'objects',
             },
         ),
         migrations.CreateModel(

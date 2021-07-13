@@ -66,6 +66,42 @@ As a reminder, you can configure the formset as per
     - only allow adding external actors using `ExternalActorForm`
     - only allow adding internal actors using `InternalActorForm`
 
+Here is a code example for displaying the formset in a template:
+
+```html
+<form action="" method="post">
+  {% csrf_token %}
+  {% bootstrap_form form %}
+  <div id="actors-formset">
+    {% bootstrap_formset_errors actors_formset %}
+    {% for form in actors_formset.forms %}
+      <div class="form-row">
+        {% bootstrap_form form layout='horizontal' exclude='DELETE' %}
+        {% bootstrap_field form.DELETE show_label=False %}
+      </div>
+    {% endfor %}
+    {{ actors_formset.management_form }}
+  </div>
+  <input type="submit" value="Envoyer" class="btn btn-primary">
+</form>
+<script src="{% statici18n LANGUAGE_CODE %}"></script>
+<script src="{% static 'js/jquery.formset.js' %}"></script>
+<script>
+  $('#actors-formset > .form-row').formset({
+    addText: gettext('Add another'),
+    deleteText: gettext('Remove'),
+    addCssClass: 'btn btn-info btn-sm',
+    deleteCssClass: 'btn btn-warning btn-sm',
+    prefix: 'actors',
+    added: function(row) {
+      $('select', row).val('').trigger('change')
+    }
+  });
+</script>
+{{ form.media }}
+{{ actors_formset.media }}
+```
+
 ## Attaching extra data to actors
 
 If you need extra data attached to actors, subclass the model, and use it in the mixin, e.g.:
@@ -89,7 +125,8 @@ class SpecialActor(Actor):
         choices=(
             ('mr', 'M.'),
             ('mme', 'Mme'),
-        )
+        ),
+        blank=True,  # must be not required
     )
 
     external_fields = ['civility'] + Actor.external_fields
@@ -193,6 +230,7 @@ other modules such as
 [osis-history](https://github.com/uclouvain/osis-history):
 
 ```python
+from urllib.parse import quote
 from django.forms import Form
 from django.shortcuts import redirect, resolve_url
 from django.views import generic
@@ -217,10 +255,11 @@ class SendInviteView(SingleObjectMixin, generic.FormView):
     def form_valid(self, form):
         actor = self.object
         actor.switch_state(SignatureState.INVITED)
+        sign_url = quote(resolve_url('demo:sign', token=get_signing_token(actor)))
         tokens = {
             "first_name": actor.computed.first_name,
             "last_name": actor.computed.last_name,
-            "signing_link": resolve_url('yourapp:sign', token=get_signing_token(actor)),
+            "sign_url": self.request.build_absolute_uri(sign_url),
         }
         email_message = generate_email(
             YOUR_TEMPLATE_MAIL_ID,
@@ -279,7 +318,7 @@ And for the template `sign.html`:
 </div>
 
 <form action="" method="post" enctype="multipart/form-data">
-  {% crsf_token %}
+  {% csrf_token %}
   {% if form.pdf_file %}
   {% blocktrans %}
     Upload the PDF document on behalf of {{ actor.computed.first_name }} {{ actor.computed.last_name }}.
