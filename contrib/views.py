@@ -29,5 +29,5 @@ from django.contrib.auth.mixins import LoginRequiredMixin
 from base.models.person import Person
 
 
-class PersonAutocomplete(LoginRequiredMixin, autocomplete.Select2QuerySetView):
+class UCLMemberAutocomplete(LoginRequiredMixin, autocomplete.Select2QuerySetView):
     queryset = Person.objects.all().order_by('last_name', 'first_name')
