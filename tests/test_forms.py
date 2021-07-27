@@ -27,12 +27,12 @@ from django.core.exceptions import ImproperlyConfigured
 from django.test import TestCase
 
 from osis_signature.contrib.forms import CommentSigningForm
-from osis_signature.tests.factories import ExternalActorFactory
+from osis_signature.tests.factories import ActorFactory
 
 
 class FormsTestCase(TestCase):
     def test_signing_form(self):
-        actor = ExternalActorFactory()
+        actor = ActorFactory()
         form = CommentSigningForm({}, instance=actor)
         with self.assertRaises(ImproperlyConfigured):
             form.is_valid()

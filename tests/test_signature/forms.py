@@ -25,11 +25,10 @@
 # ##############################################################################
 
 from osis_signature.contrib.forms import ActorForm
-from osis_signature.models import Actor
 from osis_signature.tests.test_signature.models import SpecialActor
 
 
 class SpecialActorForm(ActorForm):
     class Meta(ActorForm.Meta):
         model = SpecialActor
-        fields = ['civility'] + Actor.widget_fields
+        fields = ['civility', 'person']

@@ -27,13 +27,13 @@
 from django.test import TestCase
 
 from osis_signature.enums import SignatureState
-from osis_signature.tests.factories import ExternalActorFactory
+from osis_signature.tests.factories import ActorFactory
 from osis_signature.utils import get_signing_token, get_actor_from_token
 
 
 class UtilsTestCase(TestCase):
     def test_get_token(self):
-        actor = ExternalActorFactory()
+        actor = ActorFactory()
         with self.assertRaises(ValueError):
             get_signing_token(actor)
 
@@ -41,7 +41,7 @@ class UtilsTestCase(TestCase):
         self.assertIsNotNone(get_signing_token(actor))
 
     def test_get_actor(self):
-        actor = ExternalActorFactory()
+        actor = ActorFactory()
         actor.switch_state(SignatureState.INVITED)
 
         old_token = get_signing_token(actor)
