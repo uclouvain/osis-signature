@@ -30,4 +30,5 @@ from base.models.person import Person
 
 
 class UCLMemberAutocomplete(LoginRequiredMixin, autocomplete.Select2QuerySetView):
+    raise_exception = True
     queryset = Person.objects.all().order_by('last_name', 'first_name')

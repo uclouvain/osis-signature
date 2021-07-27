@@ -63,8 +63,7 @@ As a reminder, you can configure the formset as per
 - restrict adding too many actors with the `max_num` and `validate_max` options
 - override `form` (defaults to `ActorForm`) to
     - handle more precisely field widgets
-    - only allow adding external actors using `ExternalActorForm`
-    - only allow adding internal actors using `InternalActorForm`
+    - make some fields required
 
 Here is a code example for displaying the formset in a template:
 
@@ -129,18 +128,15 @@ class SpecialActor(Actor):
         blank=True,  # must be not required
     )
 
-    external_fields = ['civility'] + Actor.external_fields
-
 
 # forms.py
 from osis_signature.contrib.forms import ActorForm
-from osis_signature.models import Actor
 
 
 class SpecialActorForm(ActorForm):
     class Meta(ActorForm.Meta):
         model = SpecialActor
-        fields = ['civility'] + Actor.widget_fields
+        fields = ['civility', 'person']
 
 
 # views.py
@@ -189,9 +185,9 @@ If you need more granular control over the rendering of this table, the output i
   {% for actor in actors %}
   <tr>
     <th scope="row">{{ forloop.counter }}</th>
-    <td>{{ actor.computed.first_name }}</td>
-    <td>{{ actor.computed.last_name }}</td>
-    <td>{{ actor.computed.email }}</td>
+    <td>{{ actor.person.first_name }}</td>
+    <td>{{ actor.person.last_name }}</td>
+    <td>{{ actor.person.email }}</td>
     <td>{{ actor.get_state_display }}</td>
   </tr>
   {% endfor %}
@@ -257,21 +253,21 @@ class SendInviteView(SingleObjectMixin, generic.FormView):
         actor.switch_state(SignatureState.INVITED)
         sign_url = quote(resolve_url('demo:sign', token=get_signing_token(actor)))
         tokens = {
-            "first_name": actor.computed.first_name,
-            "last_name": actor.computed.last_name,
+            "first_name": actor.person.first_name,
+            "last_name": actor.person.last_name,
             "sign_url": self.request.build_absolute_uri(sign_url),
         }
         email_message = generate_email(
             YOUR_TEMPLATE_MAIL_ID,
-            actor.computed.language,
+            actor.person.language,
             tokens,
-            recipients=[actor.computed.email],
+            recipients=[actor.person.email],
         )
         EmailNotificationHandler.create(email_message)
         add_history_entry(
             actor.process_id,
-            '{} notifié par e-mail'.format(actor.computed.email),
-            '{} notified by mail'.format(actor.computed.email),
+            '{} notifié par e-mail'.format(actor.person.email),
+            '{} notified by mail'.format(actor.person.email),
             self.request.user.person.username,
         )
         return redirect('home')
@@ -321,7 +317,7 @@ And for the template `sign.html`:
   {% csrf_token %}
   {% if form.pdf_file %}
   {% blocktrans %}
-    Upload the PDF document on behalf of {{ actor.computed.first_name }} {{ actor.computed.last_name }}.
+    Upload the PDF document on behalf of {{ actor.person.first_name }} {{ actor.person.last_name }}.
     {% endblocktrans %}
     {% bootstrap_form form %}
     <button type="submit" name="submitted" value="approved" class="btn btn-primary">
@@ -329,7 +325,7 @@ And for the template `sign.html`:
     </button>
   {% else %}
     {% blocktrans %}
-    Hello {{ actor.computed.first_name }} {{ actor.computed.last_name }}, indicate here if you
+    Hello {{ actor.person.first_name }} {{ actor.person.last_name }}, indicate here if you
     approve or decline.
     {% endblocktrans %}
     {% bootstrap_form form %}

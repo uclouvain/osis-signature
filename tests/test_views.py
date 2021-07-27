@@ -39,11 +39,13 @@ from osis_signature.tests.test_signature.models import DoubleModel, SimpleModel
 class ViewsTestCase(TestCase):
     def test_person_autocomplete(self):
         PersonFactory()
-        response = self.client.get(reverse("person-autocomplete"))
-        self.assertEqual(len(response.json()['results']), 0)
+
+        url = reverse("person-autocomplete")
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 403)
 
         self.client.force_login(UserFactory())
-        response = self.client.get(reverse("person-autocomplete"))
+        response = self.client.get(url)
         self.assertEqual(len(response.json()['results']), 1)
 
 

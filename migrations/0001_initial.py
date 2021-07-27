@@ -19,14 +19,9 @@ class Migration(migrations.Migration):
             name='Actor',
             fields=[
                 ('id', models.AutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('first_name', models.CharField(blank=True, db_index=True, default='', max_length=50, verbose_name='First name')),
-                ('last_name', models.CharField(blank=True, default='', max_length=50, verbose_name='Last name')),
-                ('email', models.EmailField(blank=True, default='', max_length=255, verbose_name='E-mail')),
-                ('language', models.CharField(blank=True, choices=[('fr-be', 'French'), ('en', 'English')], max_length=30, null=True, verbose_name='Language')),
-                ('birth_date', models.DateField(blank=True, null=True, verbose_name='Birth date')),
                 ('pdf_file', osis_document.contrib.fields.FileField(base_field=models.UUIDField(), default=list, size=1, verbose_name='PDF file')),
                 ('comment', models.TextField(blank=True, default='', verbose_name='Comment')),
-                ('person', models.ForeignKey(blank=True, null=True, on_delete=django.db.models.deletion.PROTECT, to='base.Person', verbose_name='Person')),
+                ('person', models.ForeignKey(on_delete=django.db.models.deletion.PROTECT, to='base.Person', verbose_name='Person')),
             ],
             options={
                 'verbose_name': 'Actor',
@@ -61,9 +56,5 @@ class Migration(migrations.Migration):
             model_name='actor',
             name='process',
             field=models.ForeignKey(on_delete=django.db.models.deletion.CASCADE, to='osis_signature.Process', verbose_name='Signature process', related_name='actors'),
-        ),
-        migrations.AddConstraint(
-            model_name='actor',
-            constraint=models.CheckConstraint(check=models.Q(models.Q(models.Q(('birth_date__isnull', True), ('email', ''), ('first_name', ''), ('language__isnull', True), ('last_name', '')), ('person__isnull', True), _connector='OR'), models.Q(('birth_date__isnull', True), ('email', ''), ('first_name', ''), ('language__isnull', True), ('last_name', ''), ('person__isnull', True), _negated=True)), name='external_xor_person'),
         ),
     ]

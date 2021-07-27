@@ -53,5 +53,3 @@ class SpecialActor(Actor):
             ('mme', 'Mme'),
         )
     )
-
-    external_fields = ['civility'] + Actor.external_fields

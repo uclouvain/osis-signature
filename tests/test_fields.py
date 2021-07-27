@@ -27,13 +27,13 @@
 from django.test import TestCase
 
 from osis_signature.enums import SignatureState
-from osis_signature.tests.factories import ExternalActorFactory
+from osis_signature.tests.factories import ActorFactory
 from osis_signature.tests.test_signature.models import SimpleModel
 
 
 class FieldLookupTestCase(TestCase):
     def test_field_lookup(self):
-        actor = ExternalActorFactory()
+        actor = ActorFactory()
         SimpleModel.objects.create(
             title="Foo",
             jury=actor.process,
@@ -43,11 +43,11 @@ class FieldLookupTestCase(TestCase):
         actor.switch_state(SignatureState.APPROVED)
         self.assertTrue(SimpleModel.objects.filter(jury__all_signed=True).exists())
 
-        ExternalActorFactory(process=actor.process)
+        ActorFactory(process=actor.process)
         self.assertFalse(SimpleModel.objects.filter(jury__all_signed=True).exists())
 
     def test_manager(self):
-        actor = ExternalActorFactory()
+        actor = ActorFactory()
         instance = SimpleModel.objects.create(
             title="Foo",
             jury=actor.process,
@@ -57,5 +57,5 @@ class FieldLookupTestCase(TestCase):
         actor.switch_state(SignatureState.APPROVED)
         self.assertTrue(instance.jury.actors.all_signed())
 
-        ExternalActorFactory(process=actor.process)
+        ActorFactory(process=actor.process)
         self.assertFalse(instance.jury.actors.all_signed())

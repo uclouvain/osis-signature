@@ -40,25 +40,10 @@ class EmptyPermittedForm:
 class ActorForm(EmptyPermittedForm, forms.ModelForm):
     class Meta:
         model = Actor
-        fields = Actor.widget_fields
-        widgets = {
-            'person': autocomplete.ModelSelect2(url="osis_signature:person-autocomplete"),
-        }
-
-
-class InternalActorForm(EmptyPermittedForm, forms.ModelForm):
-    class Meta:
-        model = Actor
         fields = ['person']
         widgets = {
             'person': autocomplete.ModelSelect2(url="osis_signature:person-autocomplete"),
         }
-
-
-class ExternalActorForm(EmptyPermittedForm, forms.ModelForm):
-    class Meta:
-        model = Actor
-        fields = Actor.external_fields
 
 
 class SigningForm(forms.ModelForm):

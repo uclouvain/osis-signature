@@ -25,8 +25,6 @@
 # ##############################################################################
 import uuid
 
-from django.conf import settings
-from django.core.exceptions import ValidationError
 from django.db import models
 from django.db.models.functions import Coalesce
 from django.utils.translation import gettext_lazy as _
@@ -48,7 +46,7 @@ class Process(models.Model):
 
 class ActorManager(models.Manager):
     def get_queryset(self):
-        return super().get_queryset().annotate(
+        return super().get_queryset().select_related('person').annotate(
             last_state=Coalesce(
                 models.Subquery(StateHistory.objects.filter(
                     actor=models.OuterRef('pk'),
@@ -76,40 +74,7 @@ class Actor(models.Model):
     person = models.ForeignKey(
         'base.Person',
         on_delete=models.PROTECT,
-        null=True,
-        blank=True,
         verbose_name=_("Person"),
-    )
-    first_name = models.CharField(
-        max_length=50,
-        blank=True,
-        default='',
-        db_index=True,
-        verbose_name=_("First name"),
-    )
-    last_name = models.CharField(
-        max_length=50,
-        blank=True,
-        default='',
-        verbose_name=_("Last name"),
-    )
-    email = models.EmailField(
-        max_length=255,
-        blank=True,
-        default='',
-        verbose_name=_("E-mail"),
-    )
-    language = models.CharField(
-        max_length=30,
-        blank=True,
-        null=True,
-        choices=settings.LANGUAGES,
-        verbose_name=_("Language"),
-    )
-    birth_date = models.DateField(
-        blank=True,
-        null=True,
-        verbose_name=_("Birth date"),
     )
     pdf_file = FileField(
         min_files=1,
@@ -125,68 +90,14 @@ class Actor(models.Model):
 
     objects = ActorManager()
 
-    external_fields = [
-        'first_name',
-        'last_name',
-        'email',
-        'language',
-        'birth_date',
-    ]
-
-    widget_fields = [
-        'person',
-        *external_fields,
-    ]
-
     class Meta:
         verbose_name = _("Actor")
-        constraints = [
-            models.CheckConstraint(
-                # @formatter:off
-                check=(
-                        (  # Either external data is empty
-                                models.Q(
-                                    first_name='',
-                                    last_name='',
-                                    email='',
-                                    language__isnull=True,
-                                    birth_date__isnull=True,
-                                )
-                                # Or person is empty
-                                | models.Q(person__isnull=True)
-                        )
-                        # But not all can be empty
-                        & ~models.Q(
-                            person__isnull=True,
-                            first_name='',
-                            last_name='',
-                            email='',
-                            language__isnull=True,
-                            birth_date__isnull=True,
-                        )
-                ),
-                # @formatter:on
-                name='external_xor_person',
-            )
-        ]
         base_manager_name = 'objects'
 
     def __str__(self):
-        if not self.has_external_data() and not self.person:
-            return super().__str__()
-        elif not self.has_external_data():
-            return "Actor (from person: {})".format(self.person)
-        return "Actor ({})".format(
-            ' '.join(str(getattr(self, field)) for field in self.external_fields)
-        )
-
-    @property
-    def computed(self):
-        # Return either external fields or filled from the person
         if self.person_id:
-            return self.person
-        from base.models.person import Person
-        return Person(**{field: getattr(self, field) for field in Actor.external_fields})
+            return "Actor (from person: {})".format(self.person)
+        return "Actor object (None)"
 
     @property
     def state(self):
@@ -199,32 +110,6 @@ class Actor(models.Model):
 
     def get_state_display(self):
         return SignatureState.get_value(self.state)
-
-    def has_external_data(self):
-        return any(getattr(self, field) for field in self.external_fields)
-
-    def valid_external_data(self):
-        return all(getattr(self, field) for field in self.external_fields)
-
-    default_error_messages = {
-        'actor_internal_with_data': _("Actor can't be a person and have external data"),
-        'actor_all_external_data': _("Actor must provide all external data"),
-        'actor_data_required': _("Actor must have external data or person set"),
-    }
-
-    def clean(self):
-        if not self.has_external_data() and not self.person:
-            raise ValidationError(
-                self.default_error_messages['actor_data_required'], code='actor_data_required'
-            )
-        if self.has_external_data() and self.person:
-            raise ValidationError(
-                self.default_error_messages['actor_internal_with_data'], code='actor_internal_with_data'
-            )
-        if self.has_external_data() and not self.valid_external_data():
-            raise ValidationError(
-                self.default_error_messages['actor_all_external_data'], code='actor_all_external_data'
-            )
 
     def switch_state(self, state: SignatureState):
         StateHistory.objects.create(actor=self, state=state.name)

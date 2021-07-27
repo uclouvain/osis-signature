@@ -26,7 +26,7 @@
 from django.template import Template, Context
 from django.test import TestCase
 
-from osis_signature.tests.factories import ExternalActorFactory, ProcessFactory, InternalActorFactory
+from osis_signature.tests.factories import ActorFactory, ProcessFactory
 
 
 class TemplateTagsTestCase(TestCase):
@@ -39,8 +39,7 @@ class TemplateTagsTestCase(TestCase):
             ).render(context)
 
         process = ProcessFactory()
-        ExternalActorFactory(process=process, first_name='Foo')
-        InternalActorFactory(process=process, person__first_name='Bar')
+        ActorFactory(process=process, person__first_name='Foo')
         context = Context({
             'value': process
         })
@@ -50,4 +49,3 @@ class TemplateTagsTestCase(TestCase):
         ).render(context)
         self.assertIn('<table', rendered)
         self.assertInHTML('Foo', rendered)
-        self.assertInHTML('Bar', rendered)
