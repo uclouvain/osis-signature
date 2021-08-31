@@ -1,0 +1,2 @@
+recursive-include osis_signature/templates *
+recursive-include osis_signature/locale *

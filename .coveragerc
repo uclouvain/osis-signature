@@ -1,9 +1,8 @@
 [run]
 branch = True
-source = osis_signature
+source = osis_signature/osis_signature
 omit =
     */migrations/*
-    venv/*
     */tests/*
     */management/*
     */admin.py
