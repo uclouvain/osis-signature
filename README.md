@@ -1,6 +1,6 @@
 # OSIS Signature
 
-`OSIS Signature` is a Django application to ease signature workflows OSIS plateform.
+`OSIS Signature` is a Django application to ease signature workflows OSIS platform.
 
 # Requirements
 
@@ -9,6 +9,22 @@
 - Django 2.2+
 
 # Installation
+
+## For production
+
+```bash
+# From your osis install, with python environment activated
+pip install git+https://github.com/uclouvain/osis-signature.git@dev#egg=osis_signature
+```
+
+## For development
+
+```bash
+# From your osis install, with python environment activated
+git clone git@github.com:uclouvain/osis-signature.git
+pip install -e ./osis-signature
+```
+
 
 ## Configuring Django
 
