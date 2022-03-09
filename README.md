@@ -180,7 +180,7 @@ When displaying a process' value, you can use the following template tag:
 ```
 
 This will display a bootstrap-themed table of actors with their corresponding state for the process, and the button to
-send an e-mail and or sign by PDF. You can pass `allow_pdf=False` or `allow_sending=False` to prevent showing these
+send an e-mail. You can pass `allow_sending=False` to prevent showing these
 buttons.
 
 If you need more granular control over the rendering of this table, the output is similar to:
@@ -291,8 +291,8 @@ class SendInviteView(SingleObjectMixin, generic.FormView):
 
 ### Implement signing view
 
-To implement the logic behind a "Sign uploading PDF" button, or an actor clicking on a signing link in a received
-e-mail. You must implement a view and may use either `CommentSigningForm` or `PdfSigningForm` :
+To implement the logic behind an actor clicking on a signing link in a received e-mail. You must implement a view and
+may use `CommentSigningForm` :
 
 ```python
 
@@ -331,32 +331,19 @@ And for the template `sign.html`:
 
 <form action="" method="post" enctype="multipart/form-data">
   {% csrf_token %}
-  {% if form.pdf_file %}
   {% blocktrans %}
-    Upload the PDF document on behalf of {{ actor.person.first_name }} {{ actor.person.last_name }}.
-    {% endblocktrans %}
-    {% bootstrap_form form %}
-    <button type="submit" name="submitted" value="approved" class="btn btn-primary">
-      {% trans "Upload" %}
-    </button>
-  {% else %}
-    {% blocktrans %}
-    Hello {{ actor.person.first_name }} {{ actor.person.last_name }}, indicate here if you
-    approve or decline.
-    {% endblocktrans %}
-    {% bootstrap_form form %}
-    <button type="submit" name="submitted" value="approved" class="btn btn-primary">Approve</button>
-    <button type="submit" name="submitted" value="declined" class="btn btn-danger">Decline</button>
-  {% endif %}
+  Hello {{ actor.person.first_name }} {{ actor.person.last_name }}, indicate here if you
+  approve or decline.
+  {% endblocktrans %}
+  {% bootstrap_form form %}
+  <button type="submit" name="submitted" value="approved" class="btn btn-primary">Approve</button>
+  <button type="submit" name="submitted" value="declined" class="btn btn-danger">Decline</button>
 </form>
 {% endblock %}
 ```
 
 NB: it is very important to provide two buttons with the `submitted` name, so that the system know if the signature is
 approved or declined.
-
-You may notice that this template can be used both for signing by PDF (on behalf of an actor) or as result of clicking
-an e-mail link.
 
 ## Checking if all actors have signed
 

@@ -76,12 +76,6 @@ class Actor(models.Model):
         on_delete=models.PROTECT,
         verbose_name=_("Person"),
     )
-    pdf_file = FileField(
-        min_files=1,
-        max_files=1,
-        mimetypes=['application/pdf'],
-        verbose_name=_("PDF file"),
-    )
     comment = models.TextField(
         default='',
         verbose_name=_("Comment"),
