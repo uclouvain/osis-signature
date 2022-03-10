@@ -68,9 +68,3 @@ class CommentSigningForm(SigningForm):
     class Meta:
         model = Actor
         fields = ['comment']
-
-
-class PdfSigningForm(forms.ModelForm):
-    class Meta:
-        model = Actor
-        fields = ['pdf_file', 'comment']
