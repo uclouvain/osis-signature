@@ -28,7 +28,7 @@ from django import forms
 from django.core.exceptions import ImproperlyConfigured
 
 from osis_signature.enums import SignatureState
-from osis_signature.models import Actor
+from osis_signature.models import Actor, EXTERNAL_PERSON_FIELDS
 
 
 class EmptyPermittedForm:
@@ -40,10 +40,25 @@ class EmptyPermittedForm:
 class ActorForm(EmptyPermittedForm, forms.ModelForm):
     class Meta:
         model = Actor
+        fields = ['person'] + EXTERNAL_PERSON_FIELDS
+        widgets = {
+            'person': autocomplete.ModelSelect2(url="osis_signature:person-autocomplete"),
+        }
+
+
+class InternalActorForm(EmptyPermittedForm, forms.ModelForm):
+    class Meta:
+        model = Actor
         fields = ['person']
         widgets = {
             'person': autocomplete.ModelSelect2(url="osis_signature:person-autocomplete"),
         }
+
+
+class ExternalActorForm(EmptyPermittedForm, forms.ModelForm):
+    class Meta:
+        model = Actor
+        fields = EXTERNAL_PERSON_FIELDS
 
 
 class SigningForm(forms.ModelForm):

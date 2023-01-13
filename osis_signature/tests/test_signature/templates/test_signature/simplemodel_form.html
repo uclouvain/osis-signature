@@ -1,8 +1,5 @@
-{% extends "layout.html" %}
-{% load static %}
-{% load i18n %}
-{% load statici18n %}
-{% load bootstrap3 %}
+{% extends "test_signature/layout.html" %}
+{% load static i18n statici18n bootstrap3 %}
 
 {% comment "License" %}
   * OSIS stands for Open Student Information System. It's an application
@@ -27,11 +24,6 @@
   * at the root of the source code of this program.  If not,
   * see http://www.gnu.org/licenses/.
 {% endcomment %}
-
-{# These are reset to prevent errors during tests #}
-{% block header %}{% endblock %}
-{% block breadcrumbarea %}{% endblock %}
-{% block layout_navbar_top %}{% endblock %}
 
 {% block content %}
   <form action="" method="post">

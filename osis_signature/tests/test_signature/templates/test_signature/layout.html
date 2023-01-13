@@ -1,8 +1,5 @@
-{% extends "test_signature/layout.html" %}
-{% load static %}
-{% load i18n %}
-{% load statici18n %}
-{% load bootstrap3 %}
+<!doctype html>
+{% load static i18n %}
 
 {% comment "License" %}
   * OSIS stands for Open Student Information System. It's an application
@@ -11,7 +8,7 @@
   * The core business involves the administration of students, teachers,
   * courses, programs and so on.
   *
-  * Copyright (C) 2015-2019 Université catholique de Louvain (http://www.uclouvain.be)
+  * Copyright (C) 2015-2022 Université catholique de Louvain (http://www.uclouvain.be)
   *
   * This program is free software: you can redistribute it and/or modify
   * it under the terms of the GNU General Public License as published by
@@ -28,10 +25,17 @@
   * see http://www.gnu.org/licenses/.
 {% endcomment %}
 
-{% block content %}
-  <form action="" method="post">
-    {% csrf_token %}
-    {% bootstrap_form form %}
-    <input type="submit" value="Envoyer" class="btn btn-primary">
-  </form>
-{% endblock %}
+<html lang="{{ LANGUAGE_CODE }}">
+<head>
+  <meta charset="utf-8">
+  {% block title %}
+    <title>OSIS</title>
+  {% endblock %}
+</head>
+
+<body>
+
+{% block content %}{% endblock %}
+
+</body>
+</html>

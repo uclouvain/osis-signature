@@ -32,7 +32,7 @@ from osis_signature.tests.factories import ActorFactory
 
 class FormsTestCase(TestCase):
     def test_signing_form(self):
-        actor = ActorFactory()
+        actor = ActorFactory(external=True)
         form = CommentSigningForm({}, instance=actor)
         with self.assertRaises(ImproperlyConfigured):
             form.is_valid()

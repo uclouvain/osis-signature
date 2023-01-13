@@ -25,6 +25,7 @@
 # ##############################################################################
 
 import factory
+from django.conf import settings
 
 from osis_signature.models import Process, Actor
 
@@ -40,3 +41,15 @@ class ActorFactory(factory.django.DjangoModelFactory):
 
     process = factory.SubFactory(ProcessFactory)
     person = factory.SubFactory('base.tests.factories.person.PersonFactory')
+
+    class Params:
+        external = factory.Trait(
+            person=None,
+            email=factory.Faker('email'),
+            first_name=factory.Faker('first_name'),
+            last_name=factory.Faker('last_name'),
+            institute='Institute',
+            city='Somewhere',
+            country=factory.SubFactory('reference.tests.factories.country.CountryFactory'),
+            language=settings.LANGUAGE_CODE_EN,
+        )
