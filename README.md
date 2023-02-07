@@ -79,7 +79,8 @@ As a reminder, you can configure the formset as per
 - restrict adding too many actors with the `max_num` and `validate_max` options
 - override `form` (defaults to `ActorForm`) to
     - handle more precisely field widgets
-    - make some fields required
+    - only allow adding external actors using `ExternalActorForm`
+    - only allow adding internal actors using `InternalActorForm`
 
 Here is a code example for displaying the formset in a template:
 
@@ -90,10 +91,10 @@ Here is a code example for displaying the formset in a template:
   <div id="actors-formset">
     {% bootstrap_formset_errors actors_formset %}
     {% for form in actors_formset.forms %}
-      <div class="form-row">
-        {% bootstrap_form form layout='horizontal' exclude='DELETE' %}
-        {% bootstrap_field form.DELETE show_label=False %}
-      </div>
+    <div class="form-row">
+      {% bootstrap_form form layout='horizontal' exclude='DELETE' %}
+      {% bootstrap_field form.DELETE show_label=False %}
+    </div>
     {% endfor %}
     {{ actors_formset.management_form }}
   </div>
@@ -147,12 +148,13 @@ class SpecialActor(Actor):
 
 # forms.py
 from osis_signature.contrib.forms import ActorForm
+from osis_signature.models import EXTERNAL_PERSON_FIELDS
 
 
 class SpecialActorForm(ActorForm):
     class Meta(ActorForm.Meta):
         model = SpecialActor
-        fields = ['civility', 'person']
+        fields = ['civility'] + EXTERNAL_PERSON_FIELDS
 
 
 # views.py
@@ -201,9 +203,9 @@ If you need more granular control over the rendering of this table, the output i
   {% for actor in actors %}
   <tr>
     <th scope="row">{{ forloop.counter }}</th>
-    <td>{{ actor.person.first_name }}</td>
-    <td>{{ actor.person.last_name }}</td>
-    <td>{{ actor.person.email }}</td>
+    <td>{{ actor.first_name }}</td>
+    <td>{{ actor.last_name }}</td>
+    <td>{{ actor.email }}</td>
     <td>{{ actor.get_state_display }}</td>
   </tr>
   {% endfor %}
@@ -269,21 +271,21 @@ class SendInviteView(SingleObjectMixin, generic.FormView):
         actor.switch_state(SignatureState.INVITED)
         sign_url = quote(resolve_url('demo:sign', token=get_signing_token(actor)))
         tokens = {
-            "first_name": actor.person.first_name,
-            "last_name": actor.person.last_name,
+            "first_name": actor.first_name,
+            "last_name": actor.last_name,
             "sign_url": self.request.build_absolute_uri(sign_url),
         }
         email_message = generate_email(
             YOUR_TEMPLATE_MAIL_ID,
-            actor.person.language,
+            actor.language,
             tokens,
-            recipients=[actor.person.email],
+            recipients=[actor.email],
         )
         EmailNotificationHandler.create(email_message)
         add_history_entry(
             actor.process_id,
-            '{} notifié par e-mail'.format(actor.person.email),
-            '{} notified by mail'.format(actor.person.email),
+            '{} notifié par e-mail'.format(actor.email),
+            '{} notified by mail'.format(actor.email),
             self.request.user.person.username,
         )
         return redirect('home')
@@ -331,13 +333,14 @@ And for the template `sign.html`:
 
 <form action="" method="post" enctype="multipart/form-data">
   {% csrf_token %}
-  {% blocktrans %}
-  Hello {{ actor.person.first_name }} {{ actor.person.last_name }}, indicate here if you
+  {% blocktrans trimmed %}
+  Hello {{ actor.first_name }} {{ actor.last_name }}, indicate here if you
   approve or decline.
   {% endblocktrans %}
   {% bootstrap_form form %}
   <button type="submit" name="submitted" value="approved" class="btn btn-primary">Approve</button>
   <button type="submit" name="submitted" value="declined" class="btn btn-danger">Decline</button>
+  {% endif %}
 </form>
 {% endblock %}
 ```

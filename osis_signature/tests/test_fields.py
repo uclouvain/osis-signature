@@ -33,7 +33,7 @@ from osis_signature.tests.test_signature.models import SimpleModel
 
 class FieldLookupTestCase(TestCase):
     def test_field_lookup(self):
-        actor = ActorFactory()
+        actor = ActorFactory(external=True)
         SimpleModel.objects.create(
             title="Foo",
             jury=actor.process,
@@ -43,11 +43,11 @@ class FieldLookupTestCase(TestCase):
         actor.switch_state(SignatureState.APPROVED)
         self.assertTrue(SimpleModel.objects.filter(jury__all_signed=True).exists())
 
-        ActorFactory(process=actor.process)
+        ActorFactory(external=True, process=actor.process)
         self.assertFalse(SimpleModel.objects.filter(jury__all_signed=True).exists())
 
     def test_manager(self):
-        actor = ActorFactory()
+        actor = ActorFactory(external=True)
         instance = SimpleModel.objects.create(
             title="Foo",
             jury=actor.process,
@@ -57,5 +57,5 @@ class FieldLookupTestCase(TestCase):
         actor.switch_state(SignatureState.APPROVED)
         self.assertTrue(instance.jury.actors.all_signed())
 
-        ActorFactory(process=actor.process)
+        ActorFactory(external=True, process=actor.process)
         self.assertFalse(instance.jury.actors.all_signed())

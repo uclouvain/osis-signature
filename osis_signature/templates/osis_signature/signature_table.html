@@ -13,9 +13,9 @@
   {% for actor in actors %}
   <tr>
     <th scope="row">{{ forloop.counter }}</th>
-    <td>{{ actor.person.first_name }}</td>
-    <td>{{ actor.person.last_name }}</td>
-    <td>{{ actor.person.email }}</td>
+    <td>{{ actor.first_name }}</td>
+    <td>{{ actor.last_name }}</td>
+    <td>{{ actor.email }}</td>
     <td>{{ actor.get_state_display }}</td>
   </tr>
   {% endfor %}

@@ -27,7 +27,7 @@
 from django.db import models
 from django.shortcuts import resolve_url
 
-from osis_signature.models import Actor
+from osis_signature.models import Actor, EXTERNAL_PERSON_FIELDS
 from osis_signature.contrib.fields import SignatureProcessField
 
 
@@ -53,3 +53,5 @@ class SpecialActor(Actor):
             ('mme', 'Mme'),
         )
     )
+
+    external_fields = ['civility'] + EXTERNAL_PERSON_FIELDS

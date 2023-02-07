@@ -23,7 +23,7 @@
 #    see http://www.gnu.org/licenses/.
 #
 # ##############################################################################
-from django.template import Template, Context
+from django.template import Context, Template
 from django.test import TestCase
 
 from osis_signature.tests.factories import ActorFactory, ProcessFactory
@@ -39,7 +39,8 @@ class TemplateTagsTestCase(TestCase):
             ).render(context)
 
         process = ProcessFactory()
-        ActorFactory(process=process, person__first_name='Foo')
+        ActorFactory(external=True, process=process, first_name='Foo')
+        ActorFactory(process=process, person__first_name='Bar')
         context = Context({
             'value': process
         })
@@ -49,3 +50,4 @@ class TemplateTagsTestCase(TestCase):
         ).render(context)
         self.assertIn('<table', rendered)
         self.assertInHTML('Foo', rendered)
+        self.assertInHTML('Bar', rendered)
