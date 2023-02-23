@@ -54,3 +54,11 @@ class UtilsTestCase(TestCase):
 
     def test_get_actor_bad_token(self):
         self.assertIsNone(get_actor_from_token('bad-token'))
+
+    def test_get_actor_removed(self):
+        actor = ActorFactory(external=True)
+        actor.switch_state(SignatureState.INVITED)
+
+        token = get_signing_token(actor)
+        actor.delete()
+        self.assertIsNone(get_actor_from_token(token))
