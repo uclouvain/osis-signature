@@ -45,7 +45,7 @@ def get_actor_from_token(token):
         payload = signing.loads(token)
     except signing.BadSignature:
         return None
-    actor = Actor.objects.get(pk=payload['pk'])
+    actor = Actor.objects.filter(pk=payload['pk']).first()
     date = datetime.fromisoformat(payload['date'])
-    if actor.states.latest('created_at').created_at == date:
+    if actor and actor.states.last().created_at == date:
         return actor
